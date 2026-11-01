@@ -9,6 +9,10 @@ pub struct Config {
     pub http_bind: String,
     pub dns_bind: String,
     pub cache_dir: String,
+    /// Maximum cache size in GB. Least recently used entries are purged once
+    /// it is exceeded. 0 means unlimited.
+    #[serde(default)]
+    pub max_cache_size_gb: u64,
     pub dns_enabled: bool,
     pub intercept_ip: Ipv4Addr,
     pub upstream_dns: String,
@@ -20,6 +24,7 @@ impl Default for Config {
             http_bind: "0.0.0.0:80".to_string(),
             dns_bind: "0.0.0.0:53".to_string(),
             cache_dir: "./cache".to_string(),
+            max_cache_size_gb: 0,
             dns_enabled: true,
             intercept_ip: Ipv4Addr::new(127, 0, 0, 1),
             upstream_dns: "1.1.1.1".to_string(),

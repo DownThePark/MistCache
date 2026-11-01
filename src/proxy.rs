@@ -7,9 +7,11 @@ use pingora::proxy::{ProxyHttp, Session};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use crate::config::Config;
+use crate::eviction::CacheIndex;
 
 pub struct CacheCtx {
     file_handle: Option<File>,
@@ -21,6 +23,7 @@ pub struct CacheCtx {
 
 pub struct LANCache {
     pub config: Config,
+    pub index: Arc<CacheIndex>,
 }
 
 #[async_trait]
@@ -57,30 +60,32 @@ impl ProxyHttp for LANCache {
             .map(|inet| inet.ip().to_string())
             .unwrap_or_else(|| "unknown".to_string());
 
-        if final_path.exists() {
-            let metadata = fs::metadata(&final_path).map_err(|_| Error::new(ErrorType::InternalError))?;
-            info!("[{}] CACHE HIT: {} ({} KB)", client_ip, path, metadata.len() / 1024);
-
+        if let Ok(metadata) = fs::metadata(&final_path) {
             if metadata.len() < 200 {
-                // Delete corrupted file
-                fs::remove_file(&final_path).map_err(|_| Error::new(ErrorType::InternalError))?;
+                // Delete corrupted file and treat the request as a miss
+                let _ = fs::remove_file(&final_path);
+                self.index.forget(&final_path);
                 info!("Deleted corrupted cache entry: {}", path);
-            }
+            } else if let Ok(mut file) = tokio::fs::File::open(&final_path).await {
+                // If the entry was purged between the check and the open, the
+                // open fails and the request falls through to a miss.
+                info!("[{}] CACHE HIT: {} ({} KB)", client_ip, path, metadata.len() / 1024);
+                self.index.touch(&final_path);
 
-            let mut file = tokio::fs::File::open(&final_path).await.map_err(|_| Error::new(ErrorType::InternalError))?;
-            let mut header = ResponseHeader::build(200, None).unwrap().to_owned();
-            header.insert_header("Content-Type", "application/octet-stream").unwrap();
-            header.insert_header("Content-Length", metadata.len()).unwrap();
-            header.insert_header("X-Cache", "HIT").unwrap();
+                let mut header = ResponseHeader::build(200, None).unwrap().to_owned();
+                header.insert_header("Content-Type", "application/octet-stream").unwrap();
+                header.insert_header("Content-Length", metadata.len()).unwrap();
+                header.insert_header("X-Cache", "HIT").unwrap();
 
-            session.write_response_header(Box::new(header), false).await?;
-            let mut buf = [0u8; 65536];
-            while let Ok(n) = file.read(&mut buf).await {
-                if n == 0 { break; }
-                session.write_response_body(Some(Bytes::copy_from_slice(&buf[..n])), false).await?;
+                session.write_response_header(Box::new(header), false).await?;
+                let mut buf = [0u8; 65536];
+                while let Ok(n) = file.read(&mut buf).await {
+                    if n == 0 { break; }
+                    session.write_response_body(Some(Bytes::copy_from_slice(&buf[..n])), false).await?;
+                }
+                session.write_response_body(None, true).await?;
+                return Ok(true);
             }
-            session.write_response_body(None, true).await?;
-            return Ok(true);
         }
 
         info!("[{}] CACHE MISS: {}", client_ip, path);
@@ -99,7 +104,11 @@ impl ProxyHttp for LANCache {
         if end_of_stream {
             if let (Some(mut file), Some(tmp), Some(dest)) = (ctx.file_handle.take(), ctx.temp_path.take(), ctx.final_path.take()) {
                 let _ = file.flush();
-                let _ = fs::rename(&tmp, &dest);
+                if fs::rename(&tmp, &dest).is_ok() {
+                    if let Ok(meta) = fs::metadata(&dest) {
+                        self.index.record(dest, meta.len());
+                    }
+                }
             }
         }
         Ok(None)

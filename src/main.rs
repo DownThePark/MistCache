@@ -1,5 +1,6 @@
 mod config;
 mod dns;
+mod eviction;
 mod http;
 mod proxy;
 
@@ -23,6 +24,11 @@ async fn main() {
     info!("------------------------------------------");
     info!("Starting LANCache (Rust Engine)");
     info!("Cache Location: {}", cfg.cache_dir);
+    if cfg.max_cache_size_gb > 0 {
+        info!("Cache Limit:    {} GB", cfg.max_cache_size_gb);
+    } else {
+        info!("Cache Limit:    unlimited");
+    }
     info!("HTTP Address:   {}", cfg.http_bind);
     
     if cfg.dns_enabled {

@@ -1,8 +1,10 @@
 use log::{info, error};
 use std::net::{TcpListener, SocketAddr};
+use std::sync::Arc;
 use pingora::prelude::*;
 use pingora::proxy::HttpProxy;
 use crate::config::Config;
+use crate::eviction::CacheIndex;
 use crate::proxy::LANCache;
 
 pub fn create_http_service(engine: &Server, cfg: &Config) -> Option<pingora::services::listening::Service<HttpProxy<LANCache>>> {
@@ -19,9 +21,11 @@ pub fn create_http_service(engine: &Server, cfg: &Config) -> Option<pingora::ser
         }
     }
 
+    let index = Arc::new(CacheIndex::load(&cfg.cache_dir, cfg.max_cache_size_gb));
+
     let mut http_service = pingora::proxy::http_proxy_service(
-        &engine.configuration, 
-        LANCache { config: cfg.clone() }
+        &engine.configuration,
+        LANCache { config: cfg.clone(), index }
     );
     http_service.add_tcp(&cfg.http_bind);
     
