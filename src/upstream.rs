@@ -17,15 +17,12 @@ pub struct Upstream {
     addr: RwLock<SocketAddr>,
 }
 
-/// Resolves the upstream host, preferring an IPv4 address.
+/// Resolves the upstream host to an IPv4 address; IPv6 results are ignored.
 async fn resolve() -> io::Result<SocketAddr> {
-    let addrs: Vec<SocketAddr> = tokio::net::lookup_host((HOST, PORT)).await?.collect();
-    addrs
-        .iter()
-        .copied()
+    tokio::net::lookup_host((HOST, PORT))
+        .await?
         .find(SocketAddr::is_ipv4)
-        .or_else(|| addrs.first().copied())
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no addresses found for {HOST}")))
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no IPv4 address found for {HOST}")))
 }
 
 impl Upstream {

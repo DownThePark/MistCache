@@ -9,12 +9,13 @@ use crate::proxy::LANCache;
 use crate::upstream::Upstream;
 
 pub fn create_http_service(engine: &Server, cfg: &Config, upstream: Arc<Upstream>) -> Option<pingora::services::listening::Service<HttpProxy<LANCache>>> {
-    match TcpListener::bind(cfg.http_bind) {
+    let bind_addr = cfg.http_addr();
+    match TcpListener::bind(bind_addr) {
         Ok(_) => {
-            info!("SUCCESS: LANCache HTTP listening on {}", cfg.http_bind);
+            info!("SUCCESS: LANCache HTTP listening on {}", bind_addr);
         }
         Err(e) => {
-            error!("FAILED: Could not bind to {}: {}", cfg.http_bind, e);
+            error!("FAILED: Could not bind to {}: {}", bind_addr, e);
             error!("Ensure you have permission (sudo) and the address is available.");
             return None;
         }
@@ -26,7 +27,7 @@ pub fn create_http_service(engine: &Server, cfg: &Config, upstream: Arc<Upstream
         &engine.configuration,
         LANCache { config: cfg.clone(), index, upstream }
     );
-    http_service.add_tcp(&cfg.http_bind.to_string());
+    http_service.add_tcp(&bind_addr.to_string());
 
     Some(http_service)
 }

@@ -23,6 +23,10 @@ async fn main() {
     .init();
 
     let cfg = load_or_create_config();
+    if let Err(e) = cfg.validate() {
+        error!("Invalid config.toml: {}", e);
+        std::process::exit(1);
+    }
 
     info!("------------------------------------------");
     info!("Starting LANCache (Rust Engine)");
@@ -32,12 +36,12 @@ async fn main() {
     } else {
         info!("Cache Limit:    unlimited");
     }
-    info!("HTTP Address:   {}", cfg.http_bind);
+    info!("HTTP Address:   {}", cfg.http_addr());
 
     if cfg.dns_enabled {
-        info!("DNS Address:    {}", cfg.dns_bind);
-        info!("Intercept IP:   {}", cfg.intercept_ip);
-        info!("Upstream DNS:   {}", cfg.upstream_dns);
+        info!("DNS Address:    {}", cfg.dns_addr());
+        info!("Intercept IP:   {} (http_bind)", cfg.http_bind);
+        info!("Upstream DNS:   {}", cfg.upstream_dns_addr());
     }
     info!("------------------------------------------");
 
@@ -54,11 +58,11 @@ async fn main() {
     };
     let upstream_addr = upstream.get();
     info!("Upstream:       {} -> {}", upstream::HOST, upstream_addr.ip());
-    if cfg.dns_enabled && upstream_addr.ip() == cfg.intercept_ip {
+    if cfg.dns_enabled && upstream_addr.ip() == cfg.http_bind {
         warn!(
             "{} resolves to the intercept IP ({}): cache misses would loop back to this server. \
              Point this machine's own DNS at a different resolver.",
-            upstream::HOST, cfg.intercept_ip
+            upstream::HOST, cfg.http_bind
         );
     }
     upstream.spawn_refresh();
