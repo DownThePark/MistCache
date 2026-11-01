@@ -4,7 +4,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 const GB: u64 = 1024 * 1024 * 1024;
 
@@ -74,9 +74,13 @@ impl CacheIndex {
     fn load_bytes(cache_dir: &Path, max_bytes: u64) -> Self {
         let index = Self { max_bytes, inner: Mutex::new(Inner::default()) };
         if max_bytes == 0 {
+            info!("Cache index: disabled (no size limit set), skipping scan");
             return index;
         }
 
+        // Shown before the scan starts, since it can take a while on a large cache.
+        info!("Loading cache entries from {} ...", cache_dir.display());
+        let started = Instant::now();
         let mut files = Vec::new();
         scan_dir(cache_dir, &mut files);
         // Oldest first, so recency from before the restart is preserved.
@@ -87,9 +91,10 @@ impl CacheIndex {
                 inner.insert(path, size);
             }
             info!(
-                "Cache index: {} entries, {:.2} GB used",
+                "Cache index loaded: {} entries, {:.2} GB used ({:.1}s)",
                 inner.entries.len(),
-                inner.total_bytes as f64 / GB as f64
+                inner.total_bytes as f64 / GB as f64,
+                started.elapsed().as_secs_f64()
             );
         }
         index.purge();
