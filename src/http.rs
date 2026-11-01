@@ -6,8 +6,9 @@ use pingora::proxy::HttpProxy;
 use crate::config::Config;
 use crate::eviction::CacheIndex;
 use crate::proxy::LANCache;
+use crate::upstream::Upstream;
 
-pub fn create_http_service(engine: &Server, cfg: &Config) -> Option<pingora::services::listening::Service<HttpProxy<LANCache>>> {
+pub fn create_http_service(engine: &Server, cfg: &Config, upstream: Arc<Upstream>) -> Option<pingora::services::listening::Service<HttpProxy<LANCache>>> {
     match TcpListener::bind(cfg.http_bind) {
         Ok(_) => {
             info!("SUCCESS: LANCache HTTP listening on {}", cfg.http_bind);
@@ -23,7 +24,7 @@ pub fn create_http_service(engine: &Server, cfg: &Config) -> Option<pingora::ser
 
     let mut http_service = pingora::proxy::http_proxy_service(
         &engine.configuration,
-        LANCache { config: cfg.clone(), index }
+        LANCache { config: cfg.clone(), index, upstream }
     );
     http_service.add_tcp(&cfg.http_bind.to_string());
 

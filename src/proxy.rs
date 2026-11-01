@@ -13,6 +13,7 @@ use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use crate::config::Config;
 use crate::eviction::CacheIndex;
+use crate::upstream::{self, Upstream};
 
 /// Read size used when streaming a cached file to the client.
 const CHUNK: usize = 64 * 1024;
@@ -40,6 +41,7 @@ impl Drop for CacheCtx {
 pub struct LANCache {
     pub config: Config,
     pub index: Arc<CacheIndex>,
+    pub upstream: Arc<Upstream>,
 }
 
 /// Returns a temp file name unique to this request, so that concurrent misses
@@ -89,10 +91,11 @@ impl ProxyHttp for LANCache {
     }
 
     async fn upstream_peer(&self, _session: &mut Session, _ctx: &mut Self::CTX) -> Result<Box<HttpPeer>> {
+        // A concrete address, so building the peer does no DNS lookup.
         Ok(Box::new(HttpPeer::new(
-            ("lancache.steamcontent.com", 80),
+            self.upstream.get(),
             false,
-            "lancache.steamcontent.com".to_string(),
+            upstream::HOST.to_string(),
         )))
     }
 
