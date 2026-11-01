@@ -17,10 +17,6 @@ use crate::eviction::CacheIndex;
 /// Read size used when streaming a cached file to the client.
 const CHUNK: usize = 64 * 1024;
 
-/// Cached files smaller than this are treated as leftovers of an old error
-/// response and are deleted instead of being served.
-const MIN_VALID_SIZE: u64 = 200;
-
 /// Per-request state for a cache miss that is being written to disk.
 #[derive(Default)]
 pub struct CacheCtx {
@@ -124,14 +120,9 @@ impl ProxyHttp for LANCache {
 
         if let Ok(metadata) = tokio::fs::metadata(&final_path).await {
             if metadata.is_file() {
-                if metadata.len() < MIN_VALID_SIZE {
-                    // Delete corrupted file and treat the request as a miss
-                    let _ = tokio::fs::remove_file(&final_path).await;
-                    self.index.forget(&final_path);
-                    info!("Deleted corrupted cache entry: {}", uri_path);
-                } else if let Ok(file) = tokio::fs::File::open(&final_path).await {
-                    // If the entry was purged between the check and the open, the
-                    // open fails and the request falls through to a miss.
+                // If the entry was purged between the check and the open, the
+                // open fails and the request falls through to a miss.
+                if let Ok(file) = tokio::fs::File::open(&final_path).await {
                     info!("[{}] CACHE HIT: {} ({} KB)", client_ip, uri_path, metadata.len() / 1024);
                     self.index.touch(&final_path);
                     serve_file(session, file, metadata.len()).await?;

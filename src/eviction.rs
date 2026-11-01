@@ -35,13 +35,6 @@ impl Inner {
         self.total_bytes += size;
     }
 
-    fn remove(&mut self, path: &Path) {
-        if let Some(old) = self.entries.remove(path) {
-            self.order.remove(&old.tick);
-            self.total_bytes -= old.size;
-        }
-    }
-
     fn touch(&mut self, path: &Path) {
         let Some(entry) = self.entries.get_mut(path) else { return };
         if let Some(p) = self.order.remove(&entry.tick) {
@@ -132,14 +125,6 @@ impl CacheIndex {
             .write(true)
             .open(path)
             .and_then(|f| f.set_modified(SystemTime::now()));
-    }
-
-    /// Drops an entry from the index (the caller has deleted the file).
-    pub fn forget(&self, path: &Path) {
-        if !self.enabled() {
-            return;
-        }
-        self.lock().remove(path);
     }
 
     fn purge(&self) {
