@@ -43,13 +43,11 @@ impl Inner {
     }
 
     fn touch(&mut self, path: &Path) {
-        self.next_tick += 1;
-        let tick = self.next_tick;
-        if let Some(entry) = self.entries.get_mut(path) {
-            if let Some(p) = self.order.remove(&entry.tick) {
-                entry.tick = tick;
-                self.order.insert(tick, p);
-            }
+        let Some(entry) = self.entries.get_mut(path) else { return };
+        if let Some(p) = self.order.remove(&entry.tick) {
+            self.next_tick += 1;
+            entry.tick = self.next_tick;
+            self.order.insert(entry.tick, p);
         }
     }
 
@@ -76,18 +74,18 @@ pub struct CacheIndex {
 }
 
 impl CacheIndex {
-    pub fn load(cache_dir: &str, max_gb: u64) -> Self {
+    pub fn load(cache_dir: &Path, max_gb: u64) -> Self {
         Self::load_bytes(cache_dir, max_gb.saturating_mul(GB))
     }
 
-    fn load_bytes(cache_dir: &str, max_bytes: u64) -> Self {
+    fn load_bytes(cache_dir: &Path, max_bytes: u64) -> Self {
         let index = Self { max_bytes, inner: Mutex::new(Inner::default()) };
         if max_bytes == 0 {
             return index;
         }
 
         let mut files = Vec::new();
-        scan_dir(Path::new(cache_dir), &mut files);
+        scan_dir(cache_dir, &mut files);
         // Oldest first, so recency from before the restart is preserved.
         files.sort_by_key(|f| f.2);
         {
@@ -224,7 +222,7 @@ mod tests {
     #[test]
     fn evicts_oldest_first() {
         let dir = temp_dir();
-        let index = CacheIndex::load_bytes(dir.to_str().unwrap(), 3000);
+        let index = CacheIndex::load_bytes(&dir, 3000);
         let a = write(&dir, "a", 1000);
         let b = write(&dir, "b", 1000);
         let c = write(&dir, "c", 1000);
@@ -243,7 +241,7 @@ mod tests {
     #[test]
     fn hit_protects_entry_from_eviction() {
         let dir = temp_dir();
-        let index = CacheIndex::load_bytes(dir.to_str().unwrap(), 2000);
+        let index = CacheIndex::load_bytes(&dir, 2000);
         let a = write(&dir, "a", 1000);
         let b = write(&dir, "b", 1000);
         index.record(a.clone(), 1000);
@@ -266,7 +264,7 @@ mod tests {
         write(&dir, "depot/1/new", 1000);
         let stale = write(&dir, "depot/1/partial.temp", 500);
 
-        let _index = CacheIndex::load_bytes(dir.to_str().unwrap(), 1500);
+        let _index = CacheIndex::load_bytes(&dir, 1500);
         assert!(!dir.join("depot/1/old").exists());
         assert!(dir.join("depot/1/new").exists());
         assert!(!stale.exists());
@@ -276,7 +274,7 @@ mod tests {
     #[test]
     fn rerecording_a_path_does_not_double_count() {
         let dir = temp_dir();
-        let index = CacheIndex::load_bytes(dir.to_str().unwrap(), 1500);
+        let index = CacheIndex::load_bytes(&dir, 1500);
         let a = write(&dir, "a", 1000);
         index.record(a.clone(), 1000);
         index.record(a.clone(), 1000);
@@ -288,7 +286,7 @@ mod tests {
     #[test]
     fn zero_limit_disables_tracking() {
         let dir = temp_dir();
-        let index = CacheIndex::load_bytes(dir.to_str().unwrap(), 0);
+        let index = CacheIndex::load_bytes(&dir, 0);
         let a = write(&dir, "a", 1000);
         index.record(a.clone(), 1000);
         assert!(a.exists());

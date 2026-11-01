@@ -1,5 +1,5 @@
 use log::{info, error};
-use std::net::{TcpListener, SocketAddr};
+use std::net::TcpListener;
 use std::sync::Arc;
 use pingora::prelude::*;
 use pingora::proxy::HttpProxy;
@@ -8,14 +8,12 @@ use crate::eviction::CacheIndex;
 use crate::proxy::LANCache;
 
 pub fn create_http_service(engine: &Server, cfg: &Config) -> Option<pingora::services::listening::Service<HttpProxy<LANCache>>> {
-    let bind_addr: SocketAddr = cfg.http_bind.parse().expect("Invalid http_bind format in config");
-
-    match TcpListener::bind(bind_addr) {
+    match TcpListener::bind(cfg.http_bind) {
         Ok(_) => {
-            info!("SUCCESS: LANCache HTTP listening on {}", bind_addr);
+            info!("SUCCESS: LANCache HTTP listening on {}", cfg.http_bind);
         }
         Err(e) => {
-            error!("FAILED: Could not bind to {}: {}", bind_addr, e);
+            error!("FAILED: Could not bind to {}: {}", cfg.http_bind, e);
             error!("Ensure you have permission (sudo) and the address is available.");
             return None;
         }
@@ -27,7 +25,7 @@ pub fn create_http_service(engine: &Server, cfg: &Config) -> Option<pingora::ser
         &engine.configuration,
         LANCache { config: cfg.clone(), index }
     );
-    http_service.add_tcp(&cfg.http_bind);
-    
+    http_service.add_tcp(&cfg.http_bind.to_string());
+
     Some(http_service)
 }

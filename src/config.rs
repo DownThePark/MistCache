@@ -1,33 +1,33 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::net::Ipv4Addr;
-use std::path::Path;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::path::{Path, PathBuf};
 use log::warn;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct Config {
-    pub http_bind: String,
-    pub dns_bind: String,
-    pub cache_dir: String,
+    pub http_bind: SocketAddr,
+    pub dns_bind: SocketAddr,
+    pub cache_dir: PathBuf,
     /// Maximum cache size in GB. Least recently used entries are purged once
     /// it is exceeded. 0 means unlimited.
     #[serde(default)]
     pub max_cache_size_gb: u64,
     pub dns_enabled: bool,
     pub intercept_ip: Ipv4Addr,
-    pub upstream_dns: String,
+    pub upstream_dns: IpAddr,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            http_bind: "0.0.0.0:80".to_string(),
-            dns_bind: "0.0.0.0:53".to_string(),
-            cache_dir: "./cache".to_string(),
+            http_bind: SocketAddr::from(([0, 0, 0, 0], 80)),
+            dns_bind: SocketAddr::from(([0, 0, 0, 0], 53)),
+            cache_dir: PathBuf::from("./cache"),
             max_cache_size_gb: 0,
             dns_enabled: true,
             intercept_ip: Ipv4Addr::new(127, 0, 0, 1),
-            upstream_dns: "1.1.1.1".to_string(),
+            upstream_dns: IpAddr::from([1, 1, 1, 1]),
         }
     }
 }
