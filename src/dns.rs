@@ -15,7 +15,7 @@ const INTERCEPT_DOMAIN: &str = "lancache.steamcontent.com.";
 
 #[derive(Clone)]
 pub struct LANCacheDns {
-    intercept_ip: Ipv4Addr,
+    http_bind: Ipv4Addr,
     intercept_name: LowerName,
     resolver: TokioAsyncResolver,
 }
@@ -26,7 +26,7 @@ pub async fn create_dns_service(cfg: &Config) -> Option<hickory_server::ServerFu
 
     let dns_handler = LANCacheDns {
         // Clients are pointed at the HTTP server's own address.
-        intercept_ip: cfg.http_bind,
+        http_bind: cfg.http_bind,
         intercept_name: LowerName::from(Name::from_ascii(INTERCEPT_DOMAIN).expect("INTERCEPT_DOMAIN is a valid name")),
         resolver: TokioAsyncResolver::tokio(resolver_config, ResolverOpts::default()),
     };
@@ -62,10 +62,10 @@ impl RequestHandler for LANCacheDns {
         let query = request.request_info().query;
 
         if query.query_type() == RecordType::A && query.name() == &self.intercept_name {
-            info!("DNS INTERCEPT: {} -> {}", query.name(), self.intercept_ip);
+            info!("DNS INTERCEPT: {} -> {}", query.name(), self.http_bind);
             let builder = MessageResponseBuilder::from_message_request(request);
             let header = Header::response_from_request(request.header());
-            let record = Record::from_rdata(query.name().into(), 300, RData::A(A(self.intercept_ip)));
+            let record = Record::from_rdata(query.name().into(), 300, RData::A(A(self.http_bind)));
             let response = builder.build(header, std::iter::once(&record), std::iter::empty(), std::iter::empty(), std::iter::empty());
             let r_info = ResponseInfo::from(*response.header());
             return response_handle.send_response(response).await.unwrap_or(r_info);
