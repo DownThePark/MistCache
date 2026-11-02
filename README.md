@@ -1,7 +1,7 @@
 # MistCache
 
 ## Introduction
-MistCache is a fast and simple caching server for your Steam library, written in Rust. Under the hood, MistCache takes advantage of Cloudflare's amazing Pingora library.
+MistCache is a fast and memory-efficient caching server for your Steam library, written in Rust. Under the hood, MistCache takes advantage of Cloudflare's wonderful Pingora library for proxying.
 
 The first time a game is downloaded, it's proxied to your MistCache server. The next time anyone downloads the same game, they get it at LAN speed. This is far faster than having to download it straight from the internet again.
 
