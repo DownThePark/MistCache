@@ -17,8 +17,8 @@ Only successful `GET` responses are cached. Downloads that are interrupted are n
 You need the [Rust toolchain](https://rustup.rs)
 
 ```sh
-git clone https://github.com/DownThePark/LANCache-Rust
-cd LANCache-Rust
+git clone https://github.com/DownThePark/MistCache
+cd MistCache
 cargo build --release
 ```
 
