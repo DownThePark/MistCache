@@ -40,7 +40,6 @@ async fn main() {
 
     if cfg.dns_enabled {
         info!("DNS Address:    {}", cfg.dns_addr());
-        info!("Intercept IP:   {} (http_bind)", cfg.http_bind);
         info!("Upstream DNS:   {}", cfg.upstream_dns_addr());
     }
     info!("------------------------------------------");
