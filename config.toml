@@ -8,6 +8,9 @@ cache_dir = "./cache"
 # are deleted. Use 0 for no limit.
 max_cache_size_gb = 0
 
+# DNS server that non-intercepted lookups are forwarded to
+upstream_dns = "1.1.1.1"
+
 # IP address the HTTP cache server listens on.
 # When dns_enabled is true, this is also the address handed out to clients,
 # so it must be this machine's LAN IP (e.g. "192.168.1.10"), not 0.0.0.0.
@@ -21,6 +24,3 @@ dns_enabled = true
 # IP address the DNS server listens on.
 # "0.0.0.0" accepts queries on every network interface.
 dns_bind = "0.0.0.0"
-
-# DNS server that non-intercepted lookups are forwarded to
-upstream_dns = "1.1.1.1"
