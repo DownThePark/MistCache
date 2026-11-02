@@ -8,8 +8,10 @@ use crate::eviction::CacheIndex;
 use crate::proxy::LANCache;
 use crate::upstream::Upstream;
 
+// Builds the HTTP caching proxy, or returns None if the port can't be used.
 pub fn create_http_service(engine: &Server, cfg: &Config, upstream: Arc<Upstream>) -> Option<pingora::services::listening::Service<HttpProxy<LANCache>>> {
     let bind_addr = cfg.http_addr();
+    // Test-bind first to give a clear error (port 80 usually needs sudo)
     match TcpListener::bind(bind_addr) {
         Ok(_) => {
             info!("SUCCESS: LANCache HTTP listening on {}", bind_addr);
@@ -21,6 +23,7 @@ pub fn create_http_service(engine: &Server, cfg: &Config, upstream: Arc<Upstream
         }
     }
 
+    // Scan the cache folder so size tracking and eviction know what's stored
     let index = Arc::new(CacheIndex::load(&cfg.cache_dir, cfg.max_cache_size_gb));
 
     let mut http_service = pingora::proxy::http_proxy_service(

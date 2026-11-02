@@ -1,0 +1,26 @@
+# LANCache configuration
+# Edit the values below and restart for changes to take effect.
+
+# Folder where cached files are stored. Created automatically if missing.
+cache_dir = "./cache"
+
+# Maximum cache size in GB. Once exceeded, the least recently used files
+# are deleted. Use 0 for no limit.
+max_cache_size_gb = 0
+
+# IP address the HTTP cache server listens on.
+# When dns_enabled is true, this is also the address handed out to clients,
+# so it must be this machine's LAN IP (e.g. "192.168.1.10"), not 0.0.0.0.
+http_bind = "127.0.0.1"
+
+# true:  run the built-in DNS server, which points lancache.steamcontent.com
+#        at http_bind and forwards every other lookup to upstream_dns.
+# false: no DNS server; point clients at the cache some other way.
+dns_enabled = true
+
+# IP address the DNS server listens on.
+# "0.0.0.0" accepts queries on every network interface.
+dns_bind = "0.0.0.0"
+
+# DNS server that non-intercepted lookups are forwarded to
+upstream_dns = "1.1.1.1"

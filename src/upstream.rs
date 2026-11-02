@@ -4,20 +4,20 @@ use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-/// The real Steam content host that cache misses are fetched from.
+// The real Steam server that cache misses are fetched from
 pub const HOST: &str = "lancache.steamcontent.com";
 const PORT: u16 = 80;
 
-/// How often the address is looked up again, in case the host moves.
+// How often to look up the address again, in case it changes
 const REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 
-/// The current address of the upstream host. It is resolved once at startup
-/// and refreshed in the background, so requests never wait on DNS.
+// Holds the current address of the Steam server. It's looked up at startup
+// and refreshed in the background, so requests never wait on DNS.
 pub struct Upstream {
     addr: RwLock<SocketAddr>,
 }
 
-/// Resolves the upstream host to an IPv4 address; IPv6 results are ignored.
+// Looks up the Steam server's IPv4 address (IPv6 results are skipped)
 async fn resolve() -> io::Result<SocketAddr> {
     tokio::net::lookup_host((HOST, PORT))
         .await?
@@ -26,28 +26,29 @@ async fn resolve() -> io::Result<SocketAddr> {
 }
 
 impl Upstream {
-    /// Resolves the host for the first time. Fails if it cannot be resolved.
+    // Does the first lookup; fails if the host can't be resolved
     pub async fn new() -> io::Result<Arc<Self>> {
         let addr = resolve().await?;
         Ok(Arc::new(Self { addr: RwLock::new(addr) }))
     }
 
-    /// The most recently resolved address.
+    // Returns the latest known address
     pub fn get(&self) -> SocketAddr {
         *self.addr.read().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Starts a background task that re-resolves the host on a timer. If a
-    /// lookup fails, the previous address stays in use.
+    // Re-checks the address every few minutes in a background task.
+    // If a lookup fails, the old address keeps being used.
     pub fn spawn_refresh(self: &Arc<Self>) {
         let this = Arc::clone(self);
         tokio::spawn(async move {
             let mut timer = tokio::time::interval(REFRESH_INTERVAL);
-            timer.tick().await; // the first tick is immediate; we just resolved
+            timer.tick().await; // first tick is immediate, and we just resolved
             loop {
                 timer.tick().await;
                 match resolve().await {
                     Ok(new) => {
+                        // Swap in the new address and log it if it changed
                         let old = std::mem::replace(
                             &mut *this.addr.write().unwrap_or_else(|e| e.into_inner()),
                             new,

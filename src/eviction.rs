@@ -8,25 +8,28 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 const GB: u64 = 1024 * 1024 * 1024;
 
+// One cached file: its size and when it was last used
 struct Entry {
     size: u64,
     tick: u64,
 }
 
-/// In-memory bookkeeping of what is on disk, ordered by last use.
+// In-memory record of what's on disk, ordered by last use
 #[derive(Default)]
 struct Inner {
     entries: HashMap<PathBuf, Entry>,
-    /// tick -> path. The lowest tick is the least recently used entry.
+    // Maps tick -> path. The lowest tick is the least recently used file.
     order: BTreeMap<u64, PathBuf>,
     total_bytes: u64,
     next_tick: u64,
 }
 
 impl Inner {
+    // Adds a file (or replaces it) as the most recently used
     fn insert(&mut self, path: PathBuf, size: u64) {
         self.next_tick += 1;
         let tick = self.next_tick;
+        // If the path was already tracked, remove the old size first
         if let Some(old) = self.entries.insert(path.clone(), Entry { size, tick }) {
             self.order.remove(&old.tick);
             self.total_bytes -= old.size;
@@ -35,6 +38,7 @@ impl Inner {
         self.total_bytes += size;
     }
 
+    // Moves a file to the most recently used position
     fn touch(&mut self, path: &Path) {
         let Some(entry) = self.entries.get_mut(path) else { return };
         if let Some(p) = self.order.remove(&entry.tick) {
@@ -44,8 +48,8 @@ impl Inner {
         }
     }
 
-    /// Removes least recently used entries from the index until the total
-    /// fits within `limit`, and returns them so the files can be deleted.
+    // Drops the least recently used files from the record until the total
+    // fits under the limit. Returns them so the caller can delete the files.
     fn take_victims(&mut self, limit: u64) -> Vec<(PathBuf, u64)> {
         let mut victims = Vec::new();
         while self.total_bytes > limit {
@@ -59,8 +63,8 @@ impl Inner {
     }
 }
 
-/// Tracks cache size and evicts least-recently-used entries once the
-/// configured limit is exceeded. A limit of 0 disables all tracking.
+// Keeps track of the cache's total size and deletes the least recently used
+// files once the size limit is exceeded. A limit of 0 turns this all off.
 pub struct CacheIndex {
     max_bytes: u64,
     inner: Mutex<Inner>,
@@ -71,19 +75,21 @@ impl CacheIndex {
         Self::load_bytes(cache_dir, max_gb.saturating_mul(GB))
     }
 
+    // Scans the cache folder at startup and trims it if it's over the limit
     fn load_bytes(cache_dir: &Path, max_bytes: u64) -> Self {
         let index = Self { max_bytes, inner: Mutex::new(Inner::default()) };
+        // No limit means nothing to track, so skip the scan
         if max_bytes == 0 {
             info!("Cache index: disabled (no size limit set), skipping scan");
             return index;
         }
 
-        // Shown before the scan starts, since it can take a while on a large cache.
+        // Logged before scanning since large caches can take a while
         info!("Loading cache entries from {} ...", cache_dir.display());
         let started = Instant::now();
         let mut files = Vec::new();
         scan_dir(cache_dir, &mut files);
-        // Oldest first, so recency from before the restart is preserved.
+        // Oldest first, so usage order from before the restart is kept
         files.sort_by_key(|f| f.2);
         {
             let mut inner = index.lock();
@@ -105,12 +111,13 @@ impl CacheIndex {
         self.max_bytes > 0
     }
 
+    // Locks the index (still usable even if another thread panicked)
     fn lock(&self) -> std::sync::MutexGuard<'_, Inner> {
         self.inner.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Registers a completed cache entry, then evicts old entries if the
-    /// cache is now over its limit.
+    // Called when a new file finishes downloading. Adds it, then deletes
+    // old files if the cache is now too big.
     pub fn record(&self, path: PathBuf, size: u64) {
         if !self.enabled() {
             return;
@@ -119,20 +126,22 @@ impl CacheIndex {
         self.purge();
     }
 
-    /// Marks an entry as just used (called on a cache hit).
+    // Called on a cache hit to mark the file as recently used
     pub fn touch(&self, path: &Path) {
         if !self.enabled() {
             return;
         }
         self.lock().touch(path);
-        // Persist recency so ordering survives a restart.
+        // Also update the file's modified time, so the order survives a restart
         let _ = fs::OpenOptions::new()
             .write(true)
             .open(path)
             .and_then(|f| f.set_modified(SystemTime::now()));
     }
 
+    // Deletes the least recently used files until the cache fits the limit
     fn purge(&self) {
+        // Pick files to remove, then release the lock before touching the disk
         let (victims, total) = {
             let mut inner = self.lock();
             let victims = inner.take_victims(self.max_bytes);
@@ -142,6 +151,7 @@ impl CacheIndex {
             return;
         }
 
+        // Delete the files; a file that's already gone isn't an error
         let mut freed = 0u64;
         for (path, size) in &victims {
             match fs::remove_file(path) {
@@ -163,8 +173,8 @@ impl CacheIndex {
     }
 }
 
-/// Collects (path, size, mtime) for every cached file. Leftover `.temp`
-/// files from interrupted downloads are deleted.
+// Walks the cache folder and collects (path, size, modified time) for each
+// file. Leftover .temp files from interrupted downloads are deleted.
 fn scan_dir(dir: &Path, out: &mut Vec<(PathBuf, u64, SystemTime)>) {
     let Ok(read_dir) = fs::read_dir(dir) else { return };
     for entry in read_dir.flatten() {
@@ -173,6 +183,7 @@ fn scan_dir(dir: &Path, out: &mut Vec<(PathBuf, u64, SystemTime)>) {
         if file_type.is_dir() {
             scan_dir(&path, out);
         } else if file_type.is_file() {
+            // Unfinished download from a previous run
             if path.extension().is_some_and(|e| e == "temp") {
                 let _ = fs::remove_file(&path);
                 continue;
@@ -191,6 +202,7 @@ mod tests {
 
     static COUNTER: AtomicU32 = AtomicU32::new(0);
 
+    // Makes a fresh, empty folder for each test
     fn temp_dir() -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
             "lancache-test-{}-{}",
@@ -202,6 +214,7 @@ mod tests {
         dir
     }
 
+    // Creates a file of the given size inside the folder
     fn write(dir: &Path, name: &str, size: usize) -> PathBuf {
         let path = dir.join(name);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -209,6 +222,7 @@ mod tests {
         path
     }
 
+    // Going over the limit deletes the oldest file first
     #[test]
     fn evicts_oldest_first() {
         let dir = temp_dir();
@@ -228,6 +242,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
+    // A file that was just used survives, and the next oldest is deleted
     #[test]
     fn hit_protects_entry_from_eviction() {
         let dir = temp_dir();
@@ -246,6 +261,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
+    // Startup removes old files over the limit and deletes leftover .temp files
     #[test]
     fn startup_scan_purges_and_cleans_temp_files() {
         let dir = temp_dir();
@@ -261,6 +277,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
+    // Recording the same file twice counts its size only once
     #[test]
     fn rerecording_a_path_does_not_double_count() {
         let dir = temp_dir();
@@ -273,6 +290,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
+    // With a limit of 0, nothing is tracked or deleted
     #[test]
     fn zero_limit_disables_tracking() {
         let dir = temp_dir();
