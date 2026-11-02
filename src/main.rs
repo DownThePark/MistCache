@@ -31,18 +31,18 @@ async fn main() {
 
     // Startup banner
     info!("------------------------------------------");
-    info!("Starting MistCache (Rust Engine)");
+    info!("Starting MistCache...");
     info!("Cache Location: {}", cfg.cache_dir.display());
     if cfg.max_cache_size_gb > 0 {
         info!("Cache Limit:    {} GB", cfg.max_cache_size_gb);
     } else {
         info!("Cache Limit:    unlimited");
     }
+    info!("Upstream DNS:   {}", cfg.upstream_dns);
     info!("HTTP Address:   {}", cfg.http_bind);
 
     if cfg.dns_enabled {
         info!("DNS Address:    {}", cfg.dns_bind);
-        info!("Upstream DNS:   {}", cfg.upstream_dns);
     }
     info!("------------------------------------------");
 
