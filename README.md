@@ -1,11 +1,14 @@
 # MistCache
 
-A small Steam download cache for your LAN, written in Rust. The first time a game file is downloaded, it's saved to disk. Every other PC on your network then gets it at LAN speed instead of pulling it from the internet again.
+## Introduction
+MistCache is a fast and simple caching server for your Steam library, written in Rust. Under the hood, MistCache takes advantage of Cloudflare's amazing Pingora library.
+
+The first time a game is downloaded, it's proxied to your MistCache server. The next time anyone downloads the same game, they get it at LAN speed. This is far faster than having to download it straight from the internet again.
 
 ## How it works
 
-1. A built-in DNS server answers `lancache.steamcontent.com` with this machine's IP, so Steam clients send their downloads here. Every other DNS lookup is forwarded to an upstream resolver.
-2. The HTTP cache (built on [Pingora](https://github.com/cloudflare/pingora)) checks whether the requested file is already on disk.
+1. A built-in DNS server answers `lancache.steamcontent.com` with your machine's IP, so Steam clients send their downloads there. Every other DNS lookup is forwarded to an upstream resolver.
+2. The HTTP cache checks whether the requested file is already on disk.
    - **Hit:** the file is streamed straight from disk.
    - **Miss:** the file is fetched from Steam, sent to the client, and saved to disk as it downloads.
 3. If you set a size limit, the least recently used files are deleted once the cache grows past it.
@@ -14,7 +17,7 @@ Only successful `GET` responses are cached. Downloads that are interrupted are n
 
 ## Building
 
-You need the [Rust toolchain](https://rustup.rs)
+You need to have the [Rust toolchain](https://rustup.rs) installed on your system.
 
 ```sh
 git clone https://github.com/DownThePark/MistCache
@@ -22,13 +25,13 @@ cd MistCache
 cargo build --release
 ```
 
-Run it once to generate `config.toml`. Afterwards, stop the program to edit configuration file, then run the program again.
+Run it once to generate `config.toml`. Afterwards, stop the program, edit the configuration file, and run the program again.
 
 ```sh
 sudo ./target/release/mistcache
 ```
 
-Then set the DNS server on your gaming PCs (or your router's DHCP settings) to the IP of the machine running MistCache.
+Then, set the DNS server on your gaming PCs (or your router's DHCP settings) to the IP of the machine running MistCache.
 
 ## Configuration
 
@@ -43,7 +46,12 @@ Settings live in `config.toml`, which is created on first run. Restart the progr
 | `dns_enabled` | `true` runs the built-in DNS server. `false` disables it, and you'll need to point clients to lancache.steamcontent.com to your MistCache IP another way. 
 | `dns_bind` | IP the DNS server listens on. `0.0.0.0` accepts queries on every interface. |
 
+## Comparison to LANCache
+MistCache is served as a single binary file, and uses far less memory than LANCache (which uses multiple services tied together).
+
+However, MistCache is only intended to work with Steam, whereas LANCache works with various game launchers and services.
+
 ## Notes
-- The HTTP and DNS ports are fixed at 80/tcp and 53/udp.
 - The machine running MistCache must not use itself as its DNS server for Steam lookups. Otherwise cache misses would loop back to the cache.
-- Log verbosity can be changed with the `RUST_LOG` environment variable (for example `RUST_LOG=debug`).
+- Log verbosity can be reduced with the `RUST_LOG` environment variable. For example: `RUST_LOG=warn`.
+- Disclaimer: AI was largely used to work on this project.
