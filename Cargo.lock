@@ -1075,23 +1075,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mistcache"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "bytes",
- "env_logger",
- "hickory-proto",
- "hickory-resolver",
- "hickory-server",
- "log",
- "pingora",
- "serde",
- "tokio",
- "toml",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1203,6 +1186,23 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "mistcache"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "env_logger",
+ "hickory-proto",
+ "hickory-resolver",
+ "hickory-server",
+ "log",
+ "pingora",
+ "serde",
+ "tokio",
+ "toml",
 ]
 
 [[package]]
