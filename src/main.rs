@@ -38,11 +38,11 @@ async fn main() {
     } else {
         info!("Cache Limit:    unlimited");
     }
-    info!("HTTP Address:   {}", cfg.http_addr());
+    info!("HTTP Address:   {}", cfg.http_bind);
 
     if cfg.dns_enabled {
-        info!("DNS Address:    {}", cfg.dns_addr());
-        info!("Upstream DNS:   {}", cfg.upstream_dns_addr());
+        info!("DNS Address:    {}", cfg.dns_bind);
+        info!("Upstream DNS:   {}", cfg.upstream_dns);
     }
     info!("------------------------------------------");
 
