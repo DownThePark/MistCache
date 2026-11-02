@@ -31,7 +31,7 @@ async fn main() {
 
     // Startup banner
     info!("------------------------------------------");
-    info!("Starting LANCache (Rust Engine)");
+    info!("Starting MistCache (Rust Engine)");
     info!("Cache Location: {}", cfg.cache_dir.display());
     if cfg.max_cache_size_gb > 0 {
         info!("Cache Limit:    {} GB", cfg.max_cache_size_gb);

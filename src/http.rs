@@ -5,16 +5,16 @@ use pingora::prelude::*;
 use pingora::proxy::HttpProxy;
 use crate::config::Config;
 use crate::eviction::CacheIndex;
-use crate::proxy::LANCache;
+use crate::proxy::MistCache;
 use crate::upstream::Upstream;
 
 // Builds the HTTP caching proxy, or returns None if the port can't be used.
-pub fn create_http_service(engine: &Server, cfg: &Config, upstream: Arc<Upstream>) -> Option<pingora::services::listening::Service<HttpProxy<LANCache>>> {
+pub fn create_http_service(engine: &Server, cfg: &Config, upstream: Arc<Upstream>) -> Option<pingora::services::listening::Service<HttpProxy<MistCache>>> {
     let bind_addr = cfg.http_addr();
     // Test-bind first to give a clear error (port 80 usually needs sudo)
     match TcpListener::bind(bind_addr) {
         Ok(_) => {
-            info!("SUCCESS: LANCache HTTP listening on {}", bind_addr);
+            info!("SUCCESS: MistCache HTTP listening on {}", bind_addr);
         }
         Err(e) => {
             error!("FAILED: Could not bind to {}: {}", bind_addr, e);
@@ -28,7 +28,7 @@ pub fn create_http_service(engine: &Server, cfg: &Config, upstream: Arc<Upstream
 
     let mut http_service = pingora::proxy::http_proxy_service(
         &engine.configuration,
-        LANCache { config: cfg.clone(), index, upstream }
+        MistCache { config: cfg.clone(), index, upstream }
     );
     http_service.add_tcp(&bind_addr.to_string());
 

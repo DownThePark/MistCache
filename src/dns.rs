@@ -14,19 +14,19 @@ use crate::config::Config;
 const INTERCEPT_DOMAIN: &str = "lancache.steamcontent.com.";
 
 #[derive(Clone)]
-pub struct LANCacheDns {
+pub struct MistCacheDns {
     http_bind: Ipv4Addr,
     intercept_name: LowerName,
     resolver: TokioAsyncResolver,
 }
 
 // Builds the DNS server, or returns None if the port can't be bound
-pub async fn create_dns_service(cfg: &Config) -> Option<hickory_server::ServerFuture<LANCacheDns>> {
+pub async fn create_dns_service(cfg: &Config) -> Option<hickory_server::ServerFuture<MistCacheDns>> {
     // Forwarded lookups go to the upstream DNS server from config.toml
     let mut resolver_config = ResolverConfig::new();
     resolver_config.add_name_server(NameServerConfig::new(cfg.upstream_dns_addr().into(), Protocol::Udp));
 
-    let dns_handler = LANCacheDns {
+    let dns_handler = MistCacheDns {
         // Clients are sent to the HTTP cache's own address
         http_bind: cfg.http_bind,
         intercept_name: LowerName::from(Name::from_ascii(INTERCEPT_DOMAIN).expect("INTERCEPT_DOMAIN is a valid name")),
@@ -37,7 +37,7 @@ pub async fn create_dns_service(cfg: &Config) -> Option<hickory_server::ServerFu
     let bind_addr = cfg.dns_addr();
     match tokio::net::UdpSocket::bind(bind_addr).await {
         Ok(socket) => {
-            info!("SUCCESS: LANCache DNS listening on {}", bind_addr);
+            info!("SUCCESS: MistCache DNS listening on {}", bind_addr);
             dns_server.register_socket(socket);
             Some(dns_server)
         },
@@ -59,7 +59,7 @@ async fn send_empty<R: ResponseHandler>(request: &Request, mut response_handle: 
 }
 
 #[async_trait]
-impl RequestHandler for LANCacheDns {
+impl RequestHandler for MistCacheDns {
     async fn handle_request<R: ResponseHandler>(&self, request: &Request, mut response_handle: R) -> ResponseInfo {
         let query = request.request_info().query;
 

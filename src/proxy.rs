@@ -39,7 +39,7 @@ impl Drop for CacheCtx {
 }
 
 // The caching proxy. Pingora calls the methods below for each request.
-pub struct LANCache {
+pub struct MistCache {
     pub config: Config,
     pub index: Arc<CacheIndex>,
     pub upstream: Arc<Upstream>,
@@ -87,7 +87,7 @@ async fn serve_file(session: &mut Session, mut file: tokio::fs::File, len: u64) 
 }
 
 #[async_trait]
-impl ProxyHttp for LANCache {
+impl ProxyHttp for MistCache {
     type CTX = CacheCtx;
     fn new_ctx(&self) -> Self::CTX {
         CacheCtx::default()

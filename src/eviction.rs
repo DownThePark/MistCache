@@ -205,7 +205,7 @@ mod tests {
     // Makes a fresh, empty folder for each test
     fn temp_dir() -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "lancache-test-{}-{}",
+            "mistcache-test-{}-{}",
             std::process::id(),
             COUNTER.fetch_add(1, Ordering::SeqCst)
         ));
